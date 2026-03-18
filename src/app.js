@@ -1,20 +1,23 @@
 import express from "express";
 import productRouter from "./routes/product.routes.js";
+import categoryRouter from "./routes/category.routes.js"; // importa las rutas de categorías
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
+// Ruta raíz de bienvenida
+app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    messaje: "Saludo de la API",
+    message: "Saludo de la API",
     data: [],
     errors: [],
   });
-})
+});
 
-app.use("/products", productRouter);
+app.use("/products", productRouter);       // rutas de productos en /products
+app.use("/categories", categoryRouter);    // rutas de categorías en /categories
 
 export default app;
