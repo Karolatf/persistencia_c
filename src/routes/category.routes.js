@@ -1,27 +1,28 @@
 import { Router } from "express";
+// importa todas las funciones del controlador incluyendo la nueva getProductsByCategory
 import {
   getAllCategories,
   getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory,
+  getProductsByCategory,
 } from "../controllers/category.controller.js";
 
-const categoryRouter = Router();
+const categoryRouter = Router(); // crea una instancia del enrutador de Express
 
-// GET /categories → lista todas
-categoryRouter.get("/", getAllCategories);
+categoryRouter.get("/", getAllCategories); // GET /categories → lista todas las categorias
 
-// GET /categories/:id → busca una por id
-categoryRouter.get("/:id", getCategoryById);
+categoryRouter.get("/:id", getCategoryById); // GET /categories/1 → busca una categoria por id
 
-// POST /categories → crea una nueva
-categoryRouter.post("/", createCategory);
+categoryRouter.post("/", createCategory); // POST /categories → crea una categoria nueva
 
-// PUT /categories/:id → actualiza una existente
-categoryRouter.put("/:id", updateCategory);
+categoryRouter.put("/:id", updateCategory); // PUT /categories/1 → actualiza una categoria existente
 
-// DELETE /categories/:id → elimina si no tiene productos vinculados
-categoryRouter.delete("/:id", deleteCategory);
+categoryRouter.delete("/:id", deleteCategory); // DELETE /categories/1 → elimina si no tiene productos
 
-export default categoryRouter;
+// ruta relacional que sigue el estandar REST: recurso-padre/:id/recurso-hijo
+// GET /categories/1/products → retorna todos los productos de la categoria 1
+categoryRouter.get("/:id/products", getProductsByCategory);
+
+export default categoryRouter; // exporta el router para conectarlo en app.js
