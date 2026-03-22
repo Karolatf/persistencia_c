@@ -1,39 +1,40 @@
-import categoriesData from "../data/categories.data.js";
+import pool from "../config/db.js"; // importa el pool de conexiones a mysql
 
-// Modelo de categorías: único responsable de tocar el arreglo de datos
 export const CategoryModel = {
 
-  // Retorna todas las categorías del arreglo
-  findAll: () => {
-    return categoriesData;
+  // consulta todas las categorias de la base de datos
+  findAll: async () => {
+    const [rows] = await pool.query("SELECT * FROM categories"); // trae todos los registros
+    return rows; // retorna el arreglo completo
   },
 
-  // Busca una categoría por su id numérico
-  findById: (id) => {
-    return categoriesData.find((c) => c.id === id);
+  // busca una categoria por su id
+  findById: async (id) => {
+    const [rows] = await pool.query("SELECT * FROM categories WHERE id = ?", [id]);
+    return rows[0]; // retorna el primer resultado, undefined si no existe
   },
 
-  // Crea una nueva categoría y la agrega al arreglo
-  create: (newCategory) => {
-    const id = categoriesData.length + 1;          // genera id automático
-    const categoryWithId = { id, ...newCategory }; // combina id + datos recibidos
-    categoriesData.push(categoryWithId);            // agrega al arreglo
-    return categoryWithId;
+  // inserta una nueva categoria en la base de datos
+  create: async (newCategory) => {
+    const { name } = newCategory; // extrae el nombre del objeto recibido
+    const [result] = await pool.query("INSERT INTO categories (name) VALUES (?)", [name]);
+    // retorna la categoria recien creada buscandola por el id generado por mysql
+    const [rows] = await pool.query("SELECT * FROM categories WHERE id = ?", [result.insertId]);
+    return rows[0];
   },
 
-  // Modifica los campos de una categoría existente
-  update: (id, updatedFields) => {
-    const index = categoriesData.findIndex((c) => c.id === id);
-    if (index === -1) return null;                              // no existe → null
-    categoriesData[index] = { ...categoriesData[index], ...updatedFields }; // fusiona
-    return categoriesData[index];
+  // actualiza el nombre de una categoria existente
+  update: async (id, updatedFields) => {
+    const { name } = updatedFields; // extrae el nombre del objeto recibido
+    await pool.query("UPDATE categories SET name = ? WHERE id = ?", [name, id]);
+    // retorna la categoria actualizada
+    const [rows] = await pool.query("SELECT * FROM categories WHERE id = ?", [id]);
+    return rows[0]; // undefined si no existia el id
   },
 
-  // Elimina una categoría del arreglo por su id
-  delete: (id) => {
-    const index = categoriesData.findIndex((c) => c.id === id);
-    if (index === -1) return false;       // no encontrado → false
-    categoriesData.splice(index, 1);      // remueve 1 elemento en esa posición
-    return true;
+  // elimina una categoria de la base de datos por su id
+  delete: async (id) => {
+    const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [id]);
+    return result.affectedRows > 0; // true si se elimino, false si no existia
   },
 };

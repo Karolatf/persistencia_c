@@ -1,26 +1,33 @@
 import { CategoryModel } from "../models/category.model.js";
-// importamos ProductModel para poder consultar productos desde el controlador de categorias
 import { ProductModel } from "../models/product.model.js";
 
 // retorna la lista completa de categorias al cliente
-const getAllCategories = (req, res) => {
-  const categories = CategoryModel.findAll(); // pide todos los datos al modelo
-  res.status(200).json({
-    success: true,
-    message: "Lista de categorías",
-    data: categories, // envia el arreglo de categorias
-    errors: [],
-  });
+const getAllCategories = async (req, res) => {
+  try {
+    const categories = await CategoryModel.findAll(); // espera la respuesta de mysql
+    res.status(200).json({
+      success: true,
+      message: "Lista de categorías",
+      data: categories,
+      errors: [],
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener las categorías",
+      data: [],
+      errors: [],
+    });
+  }
 };
 
-// busca y retorna una sola categoria segun el id que llega por la URL
-const getCategoryById = (req, res) => {
+// busca y retorna una sola categoria segun el id de la URL
+const getCategoryById = async (req, res) => {
   try {
-    const { id } = req.params; // extrae el id del parametro de la URL ej: /categories/1
-    const category = CategoryModel.findById(Number(id)); // convierte el id a numero y lo busca
+    const { id } = req.params;
+    const category = await CategoryModel.findById(Number(id)); // espera la consulta a mysql
 
-    // si el modelo retorna undefined significa que no existe esa categoria
-    if (!category) {
+    if (!category) { // si mysql no encontro nada retorna undefined
       return res.status(404).json({
         success: false,
         message: `Categoría con ID ${id} no encontrada`,
@@ -32,11 +39,10 @@ const getCategoryById = (req, res) => {
     res.status(200).json({
       success: true,
       message: "Categoría encontrada correctamente",
-      data: category, // envia el objeto de la categoria encontrada
+      data: category,
       errors: [],
     });
   } catch (error) {
-    // captura cualquier error inesperado del servidor
     res.status(500).json({
       success: false,
       message: "Error al procesar la búsqueda",
@@ -46,59 +52,75 @@ const getCategoryById = (req, res) => {
   }
 };
 
-// crea una nueva categoria con los datos que llegan en el body de la peticion
-const createCategory = (req, res) => {
-  const { name } = req.body; // extrae el campo name del cuerpo de la peticion
-
-  // validacion: el name es obligatorio, si no viene se rechaza con 400
-  if (!name) {
-    return res.status(400).json({
-      success: false,
-      message: "El nombre de la categoría es obligatorio",
-      data: [],
-      errors: [],
-    });
-  }
-
-  const newCategory = CategoryModel.create({ name }); // envia solo el name al modelo para que cree el objeto
-  res.status(201).json({
-    success: true,
-    message: "Categoría creada correctamente",
-    data: newCategory, // envia el objeto recien creado con su id generado
-    errors: [],
-  });
-};
-
-// actualiza los datos de una categoria existente segun el id de la URL
-const updateCategory = (req, res) => {
-  const { id } = req.params; // extrae el id de la URL
-  const updatedCategory = CategoryModel.update(Number(id), req.body); // envia id y campos nuevos al modelo
-
-  // si el modelo retorna null significa que no encontro la categoria con ese id
-  if (!updatedCategory) {
-    return res.status(404).json({
-      success: false,
-      message: `Categoría con ID ${id} no encontrada`,
-      data: [],
-      errors: [],
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    message: "Categoría actualizada correctamente",
-    data: updatedCategory, // envia el objeto con los datos ya actualizados
-    errors: [],
-  });
-};
-
-// elimina una categoria pero primero valida que no tenga productos vinculados
-const deleteCategory = (req, res) => {
+// crea una nueva categoria con los datos del body
+const createCategory = async (req, res) => {
   try {
-    const { id } = req.params; // extrae el id de la URL
+    const { name } = req.body;
+
+    if (!name) { // validacion: el name es obligatorio
+      return res.status(400).json({
+        success: false,
+        message: "El nombre de la categoría es obligatorio",
+        data: [],
+        errors: [],
+      });
+    }
+
+    const newCategory = await CategoryModel.create({ name }); // inserta en mysql y retorna el registro
+    res.status(201).json({
+      success: true,
+      message: "Categoría creada correctamente",
+      data: newCategory,
+      errors: [],
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al crear la categoría",
+      data: [],
+      errors: [],
+    });
+  }
+};
+
+// actualiza una categoria existente
+const updateCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedCategory = await CategoryModel.update(Number(id), req.body);
+
+    if (!updatedCategory) { // si mysql no encontro el id retorna undefined
+      return res.status(404).json({
+        success: false,
+        message: `Categoría con ID ${id} no encontrada`,
+        data: [],
+        errors: [],
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Categoría actualizada correctamente",
+      data: updatedCategory,
+      errors: [],
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar la categoría",
+      data: [],
+      errors: [],
+    });
+  }
+};
+
+// elimina una categoria validando primero que no tenga productos vinculados
+const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
 
     // paso 1: verifica que la categoria exista antes de intentar cualquier cosa
-    const categoryExists = CategoryModel.findById(Number(id));
+    const categoryExists = await CategoryModel.findById(Number(id));
     if (!categoryExists) {
       return res.status(404).json({
         success: false,
@@ -108,12 +130,10 @@ const deleteCategory = (req, res) => {
       });
     }
 
-    // paso 2: regla de negocio - pregunta al modelo de productos si hay alguno con ese category_id
-    // existsByCategoryId retorna true si hay productos, false si no hay ninguno
-    const hasProducts = ProductModel.existsByCategoryId(Number(id));
+    // paso 2: regla de negocio - verifica si hay productos vinculados a esta categoria
+    const hasProducts = await ProductModel.existsByCategoryId(Number(id));
     if (hasProducts) {
-      // 409 Conflict: la operacion es valida pero viola una regla de negocio
-      return res.status(409).json({
+      return res.status(409).json({ // 409 Conflict: viola una regla de negocio
         success: false,
         message: "No se puede eliminar la categoría porque tiene recursos vinculados",
         data: [],
@@ -121,8 +141,8 @@ const deleteCategory = (req, res) => {
       });
     }
 
-    // paso 3: si paso las dos validaciones anteriores, procede a eliminar
-    const isDeleted = CategoryModel.delete(Number(id));
+    // paso 3: si paso las validaciones procede a eliminar
+    await CategoryModel.delete(Number(id));
     res.status(200).json({
       success: true,
       message: "Categoría eliminada correctamente",
@@ -130,7 +150,6 @@ const deleteCategory = (req, res) => {
       errors: [],
     });
   } catch (error) {
-    // captura errores inesperados del servidor
     res.status(500).json({
       success: false,
       message: "Error al intentar eliminar la categoría",
@@ -140,13 +159,13 @@ const deleteCategory = (req, res) => {
   }
 };
 
-// ruta relacional: retorna todos los productos que pertenecen a una categoria especifica
-const getProductsByCategory = (req, res) => {
+// retorna todos los productos que pertenecen a una categoria especifica
+const getProductsByCategory = async (req, res) => {
   try {
-    const { id } = req.params; // extrae el id de la categoria de la URL
+    const { id } = req.params;
 
-    // paso 1: valida que la categoria exista antes de buscar sus productos
-    const categoryExists = CategoryModel.findById(Number(id));
+    // paso 1: valida que la categoria exista
+    const categoryExists = await CategoryModel.findById(Number(id));
     if (!categoryExists) {
       return res.status(404).json({
         success: false,
@@ -156,13 +175,12 @@ const getProductsByCategory = (req, res) => {
       });
     }
 
-    // paso 2: busca todos los productos que tengan ese category_id usando existsByCategoryId no aplica aqui
-    // se usa findByCategoryId en el modelo porque necesitamos el arreglo completo, no solo true/false
-    const products = ProductModel.findByCategoryId(Number(id));
+    // paso 2: busca todos los productos de esa categoria en mysql
+    const products = await ProductModel.findByCategoryId(Number(id));
     res.status(200).json({
       success: true,
-      message: `Productos de la categoría: ${categoryExists.name}`, // incluye el nombre de la categoria en el mensaje
-      data: products, // envia el arreglo de productos de esa categoria
+      message: `Productos de la categoría: ${categoryExists.name}`,
+      data: products,
       errors: [],
     });
   } catch (error) {
@@ -175,12 +193,11 @@ const getProductsByCategory = (req, res) => {
   }
 };
 
-// exporta todas las funciones para que las rutas puedan usarlas
 export {
   getAllCategories,
   getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory,
-  getProductsByCategory, // funcion nueva para la ruta relacional
+  getProductsByCategory,
 };
