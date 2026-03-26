@@ -1,16 +1,31 @@
 import mysql from "mysql2/promise"; // importa mysql2 en su version con promesas para usar async/await
+// Cargamos las variables de entorno
+import "dotenv/config";
 
 // crea un pool de conexiones en lugar de una conexion unica
 // el pool maneja multiples conexiones automaticamente segun la demanda
+// Es mucho más eficiente que abrir y cerrar una conexión por cada consulta.
 const pool = mysql.createPool({
-  host: "127.0.0.1",       // direccion del servidor mysql, localhost
-  port: 3306,              // puerto por defecto de mysql
-  user: "app_user",        // usuario restringido que creamos en workbench
-  password: "TORRES_2007", // contrasena del usuario app_user
-  database: "inventario_apropiacion", // base de datos a la que se conecta
-  waitForConnections: true, // si no hay conexiones disponibles, espera en lugar de dar error
-  connectionLimit: 10,      // maximo de conexiones simultaneas permitidas en el pool
-  queueLimit: 0,            // 0 significa sin limite de peticiones en espera
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
+  waitForConnections: true,
+  connectionLimit: 10, // Máximo de conexiones simultáneas
+  queueLimit: 0,
 });
+
+// Prueba de conexión automática al arrancar
+pool
+  .getConnection()
+  .then((connection) => {
+    console.log("Conexión a la base de datos MySQL establecida con éxito");
+    // Liberamos la conexión de vuelta al pool
+    connection.release();
+  })
+  .catch((error) => {
+    console.error("Error al conectar con la base de datos:", error.message);
+  });
 
 export default pool; // exporta el pool para usarlo en los modelos

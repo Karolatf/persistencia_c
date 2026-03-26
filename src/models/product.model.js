@@ -28,20 +28,28 @@ export const ProductModel = {
       [name, price, stock ?? 5, category_id] // si no viene stock usa 5 por defecto igual que en la tabla
     );
     // retorna el producto recien creado buscandolo por el id que mysql genero automaticamente
-    const [rows] = await pool.query("SELECT * FROM products WHERE id = ?", [result.insertId]);
-    return rows[0];
+    const [createdProduct] = await pool.query(
+      "SELECT * FROM products WHERE id = ?",
+      [result.insertId],
+    );
+    return createdProduct[0];
   },
 
   // actualiza los campos de un producto existente
   update: async (id, updatedFields) => {
     const { name, price, stock, category_id } = updatedFields; // extrae solo los campos que llegaron
-    await pool.query(
+    const [result] = await pool.query(
       "UPDATE products SET name = ?, price = ?, stock = ?, category_id = ? WHERE id = ?",
       [name, price, stock, category_id, id]
     );
     // retorna el producto actualizado para enviarselo al cliente
-    const [rows] = await pool.query("SELECT * FROM products WHERE id = ?", [id]);
-    return rows[0]; // undefined si no existia el id
+    if (result.affectedRows === 0) return null;
+
+    const [updatedProduct] = await pool.query(
+      "SELECT * FROM products WHERE id = ?",
+      [id],
+    );
+    return updatedProduct[0];
   },
 
   // elimina un producto de la base de datos por su id

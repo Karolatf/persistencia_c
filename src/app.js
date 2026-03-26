@@ -2,6 +2,8 @@ import express from "express";
 import productRouter from "./routes/product.routes.js";
 import categoryRouter from "./routes/category.routes.js"; // importa las rutas de categorías
 
+import "./config/db.js";
+
 const app = express();
 
 app.use(express.json());
