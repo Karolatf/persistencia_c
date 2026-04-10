@@ -1,67 +1,84 @@
-import pool from "../config/db.js"; // importa el pool de conexiones a mysql
+// MÓDULO: models/product.model.js
+// CAPA:   Models (acceso directo a MySQL)
+//
+// Correcciones respecto al código del profesor:
+//   - Se usa category_id (no categori_id) en todas las queries
+//   - Se corrigió el bug en update: faltaba coma y price en los parámetros
+//
+// Dependencias: config/db.js
+
+import pool from "../config/db.js";
 
 export const ProductModel = {
 
-  // consulta todos los productos de la base de datos
+  // Retorna todos los productos
   findAll: async () => {
-    const [rows] = await pool.query("SELECT * FROM products"); // ejecuta el SELECT y desestructura el resultado
-    return rows; // retorna el arreglo de productos
+    const [rows] = await pool.query("SELECT * FROM products");
+    return rows;
   },
 
-  // busca un producto por su id en la base de datos
+  // Busca un producto por ID; retorna undefined si no existe
   findById: async (id) => {
-    const [rows] = await pool.query("SELECT * FROM products WHERE id = ?", [id]); // el ? evita SQL injection
-    return rows[0]; // retorna solo el primer resultado, undefined si no existe
+    const [rows] = await pool.query(
+      "SELECT * FROM products WHERE id = ?",
+      [id]
+    );
+    return rows[0];
   },
 
-  // busca todos los productos que pertenecen a una categoria
+  // Busca todos los productos de una categoría
+  // Usado por deleteCategory para verificar integridad antes de borrar
   findByCategoryId: async (categoryId) => {
-    const [rows] = await pool.query("SELECT * FROM products WHERE category_id = ?", [categoryId]);
-    return rows; // retorna arreglo, vacio si no hay productos en esa categoria
+    const [rows] = await pool.query(
+      "SELECT * FROM products WHERE category_id = ?",
+      [categoryId]
+    );
+    return rows;
   },
 
-  // inserta un nuevo producto en la base de datos
+  // Inserta un producto y retorna el registro completo con su ID generado
   create: async (newProduct) => {
-    const { name, price, stock, category_id } = newProduct; // extrae los campos del objeto recibido
+    const { name, category_id, price } = newProduct;
+
     const [result] = await pool.query(
       "INSERT INTO products (name, price, stock, category_id) VALUES (?, ?, ?, ?)",
-      [name, price, stock ?? 5, category_id] // si no viene stock usa 5 por defecto igual que en la tabla
+      [name, price, 5, category_id] // stock por defecto 5 igual que la tabla
     );
-    // retorna el producto recien creado buscandolo por el id que mysql genero automaticamente
+
     const [createdProduct] = await pool.query(
       "SELECT * FROM products WHERE id = ?",
-      [result.insertId],
+      [result.insertId]
     );
     return createdProduct[0];
   },
 
-  // actualiza los campos de un producto existente
+  // Actualiza un producto existente
+  // BUG CORREGIDO del profesor: faltaba la coma entre category_id y price,
+  // y price no estaba en el arreglo de parámetros
   update: async (id, updatedFields) => {
-    const { name, price, stock, category_id } = updatedFields; // extrae solo los campos que llegaron
+    const { name, category_id, price } = updatedFields;
+
     const [result] = await pool.query(
-      "UPDATE products SET name = ?, price = ?, stock = ?, category_id = ? WHERE id = ?",
-      [name, price, stock, category_id, id]
+      "UPDATE products SET name = ?, category_id = ?, price = ? WHERE id = ?",
+      [name, category_id, price, id] // id va al final para el WHERE
     );
-    // retorna el producto actualizado para enviarselo al cliente
+
+    // affectedRows = 0 significa que el ID no existe en la tabla
     if (result.affectedRows === 0) return null;
 
     const [updatedProduct] = await pool.query(
       "SELECT * FROM products WHERE id = ?",
-      [id],
+      [id]
     );
     return updatedProduct[0];
   },
 
-  // elimina un producto de la base de datos por su id
+  // Elimina un producto; retorna true si se eliminó, false si no existía
   delete: async (id) => {
-    const [result] = await pool.query("DELETE FROM products WHERE id = ?", [id]);
-    return result.affectedRows > 0; // retorna true si se elimino algo, false si el id no existia
-  },
-
-  // verifica si existe al menos un producto vinculado a una categoria
-  // retorna true si hay productos, false si no hay ninguno
-  existsByCategoryId: async (categoryId) => {
-    const [rows] = await pool.query("SELECT id FROM products WHERE category_id = ? LIMIT 1", [categoryId]);
-    return rows.length > 0; // si el arreglo tiene algo es porque existe al menos un producto
+    const [result] = await pool.query(
+      "DELETE FROM products WHERE id = ?",
+      [id]
+    );
+    return result.affectedRows > 0;
   },
 };

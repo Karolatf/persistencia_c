@@ -1,5 +1,14 @@
+// MÓDULO: routes/category.routes.js
+// CAPA:   Routes
+//
+// Actualización: POST y PUT ahora pasan por validateSchema(categorySchema).
+//
+// Dependencias:
+//   controllers/category.controller.js
+//   middlewares/validator.middleware.js
+//   schemas/category.schema.js
+
 import { Router } from "express";
-// importa todas las funciones del controlador incluyendo la nueva getProductsByCategory
 import {
   getAllCategories,
   getCategoryById,
@@ -8,21 +17,22 @@ import {
   deleteCategory,
   getProductsByCategory,
 } from "../controllers/category.controller.js";
+import { validateSchema } from "../middlewares/validator.middleware.js";
+import { categorySchema } from "../schemas/category.schema.js";
 
-const categoryRouter = Router(); // crea una instancia del enrutador de Express
+const categoryRouter = Router();
 
-categoryRouter.get("/", getAllCategories); // GET /categories → lista todas las categorias
+// GET y DELETE no necesitan validación de body
+categoryRouter.get("/", getAllCategories);
+categoryRouter.get("/:id", getCategoryById);
 
-categoryRouter.get("/:id", getCategoryById); // GET /categories/1 → busca una categoria por id
+// POST y PUT: primero valida con Zod, luego llama al controlador
+categoryRouter.post("/", validateSchema(categorySchema), createCategory);
+categoryRouter.put("/:id", validateSchema(categorySchema), updateCategory);
 
-categoryRouter.post("/", createCategory); // POST /categories → crea una categoria nueva
+categoryRouter.delete("/:id", deleteCategory);
 
-categoryRouter.put("/:id", updateCategory); // PUT /categories/1 → actualiza una categoria existente
-
-categoryRouter.delete("/:id", deleteCategory); // DELETE /categories/1 → elimina si no tiene productos
-
-// ruta relacional que sigue el estandar REST: recurso-padre/:id/recurso-hijo
-// GET /categories/1/products → retorna todos los productos de la categoria 1
+// Ruta relacional REST estándar
 categoryRouter.get("/:id/products", getProductsByCategory);
 
-export default categoryRouter; // exporta el router para conectarlo en app.js
+export default categoryRouter;

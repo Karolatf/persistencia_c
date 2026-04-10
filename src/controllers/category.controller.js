@@ -1,197 +1,121 @@
+// MÓDULO: controllers/category.controller.js
+// CAPA:   Controllers (lógica de peticiones HTTP)
+//
+// Responsabilidad ÚNICA: gestionar las peticiones HTTP de categorías,
+// incluyendo la regla de integridad al eliminar.
+//
+// Dependencias:
+//   models/category.model.js     (acceso a MySQL para categorías)
+//   models/product.model.js      (para verificar productos vinculados)
+//   utils/catchAsync.js          (captura de errores asíncronos)
+//   utils/response.handler.js    (formato estándar de respuestas)
+
 import { CategoryModel } from "../models/category.model.js";
 import { ProductModel } from "../models/product.model.js";
+import { catchAsync } from "../utils/catchAsync.js";
+import { successResponse } from "../utils/response.handler.js";
 
-// retorna la lista completa de categorias al cliente
-const getAllCategories = async (req, res) => {
-  try {
-    const categories = await CategoryModel.findAll(); // espera la respuesta de mysql
-    res.status(200).json({
-      success: true,
-      message: "Lista de categorías",
-      data: categories,
-      errors: [],
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener las categorías",
-      data: [],
-      errors: [],
-    });
+// GET /categories — Lista todas las categorías
+const getAllCategories = catchAsync(async (req, res) => {
+  const categories = await CategoryModel.findAll();
+  return successResponse(res, 200, "Lista de categorías", categories);
+});
+
+// GET /categories/:id — Busca una categoría por su ID
+const getCategoryById = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const category = await CategoryModel.findById(Number(id));
+
+  if (!category) {
+    const error = new Error(`Categoría con ID ${id} no encontrada`);
+    error.statusCode = 404;
+    return next(error);
   }
-};
 
-// busca y retorna una sola categoria segun el id de la URL
-const getCategoryById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const category = await CategoryModel.findById(Number(id)); // espera la consulta a mysql
+  return successResponse(res, 200, "Categoría encontrada correctamente", category);
+});
 
-    if (!category) { // si mysql no encontro nada retorna undefined
-      return res.status(404).json({
-        success: false,
-        message: `Categoría con ID ${id} no encontrada`,
-        data: [],
-        errors: [],
-      });
-    }
+// POST /categories — Crea una categoría nueva
+const createCategory = catchAsync(async (req, res, next) => {
+  const { name } = req.body;
 
-    res.status(200).json({
-      success: true,
-      message: "Categoría encontrada correctamente",
-      data: category,
-      errors: [],
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al procesar la búsqueda",
-      data: [],
-      errors: [],
-    });
+  if (!name) {
+    const error = new Error("El nombre de la categoría es obligatorio");
+    error.statusCode = 400;
+    return next(error);
   }
-};
 
-// crea una nueva categoria con los datos del body
-const createCategory = async (req, res) => {
-  try {
-    const { name } = req.body;
+  const newCategory = await CategoryModel.create({ name });
+  return successResponse(res, 201, "Categoría creada correctamente", newCategory);
+});
 
-    if (!name) { // validacion: el name es obligatorio
-      return res.status(400).json({
-        success: false,
-        message: "El nombre de la categoría es obligatorio",
-        data: [],
-        errors: [],
-      });
-    }
+// PUT /categories/:id — Actualiza una categoría existente
+const updateCategory = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const updatedCategory = await CategoryModel.update(Number(id), req.body);
 
-    const newCategory = await CategoryModel.create({ name }); // inserta en mysql y retorna el registro
-    res.status(201).json({
-      success: true,
-      message: "Categoría creada correctamente",
-      data: newCategory,
-      errors: [],
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al crear la categoría",
-      data: [],
-      errors: [],
-    });
+  if (!updatedCategory) {
+    const error = new Error(`Categoría con ID ${id} no encontrada`);
+    error.statusCode = 404;
+    return next(error);
   }
-};
 
-// actualiza una categoria existente
-const updateCategory = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedCategory = await CategoryModel.update(Number(id), req.body);
+  return successResponse(res, 200, "Categoría actualizada correctamente", updatedCategory);
+});
 
-    if (!updatedCategory) { // si mysql no encontro el id retorna undefined
-      return res.status(404).json({
-        success: false,
-        message: `Categoría con ID ${id} no encontrada`,
-        data: [],
-        errors: [],
-      });
-    }
+// DELETE /categories/:id — Elimina una categoría con regla de integridad
+// No se puede eliminar si tiene productos vinculados (regla de negocio)
+const deleteCategory = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
 
-    res.status(200).json({
-      success: true,
-      message: "Categoría actualizada correctamente",
-      data: updatedCategory,
-      errors: [],
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al actualizar la categoría",
-      data: [],
-      errors: [],
-    });
+  // Paso 1: verificar que la categoría existe antes de cualquier otra operación
+  const categoryExists = await CategoryModel.findById(Number(id));
+  if (!categoryExists) {
+    const error = new Error(
+      `No se pudo eliminar: Categoría con ID ${id} no encontrada`
+    );
+    error.statusCode = 404;
+    return next(error);
   }
-};
 
-// elimina una categoria validando primero que no tenga productos vinculados
-const deleteCategory = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // paso 1: verifica que la categoria exista antes de intentar cualquier cosa
-    const categoryExists = await CategoryModel.findById(Number(id));
-    if (!categoryExists) {
-      return res.status(404).json({
-        success: false,
-        message: `No se pudo eliminar: Categoría con ID ${id} no encontrada`,
-        data: [],
-        errors: [],
-      });
-    }
-
-    // paso 2: regla de negocio - verifica si hay productos vinculados a esta categoria
-    const hasProducts = await ProductModel.existsByCategoryId(Number(id));
-    if (hasProducts) {
-      return res.status(409).json({ // 409 Conflict: viola una regla de negocio
-        success: false,
-        message: "No se puede eliminar la categoría porque tiene recursos vinculados",
-        data: [],
-        errors: [],
-      });
-    }
-
-    // paso 3: si paso las validaciones procede a eliminar
-    await CategoryModel.delete(Number(id));
-    res.status(200).json({
-      success: true,
-      message: "Categoría eliminada correctamente",
-      data: [],
-      errors: [],
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al intentar eliminar la categoría",
-      data: [],
-      errors: [],
-    });
+  // Paso 2: regla de integridad — verificar si hay productos vinculados
+  // Si los hay, MySQL igual lo bloquearía por ON DELETE RESTRICT,
+  // pero respondemos con 409 antes de intentar el DELETE
+  const linkedProducts = await ProductModel.findByCategoryId(Number(id));
+  if (linkedProducts && linkedProducts.length > 0) {
+    const error = new Error(
+      "No se puede eliminar la categoría porque tiene recursos vinculados"
+    );
+    error.statusCode = 409; // Conflict: viola una regla de negocio
+    return next(error);
   }
-};
 
-// retorna todos los productos que pertenecen a una categoria especifica
-const getProductsByCategory = async (req, res) => {
-  try {
-    const { id } = req.params;
+  // Paso 3: pasó ambas validaciones, procede a eliminar
+  await CategoryModel.delete(Number(id));
+  return successResponse(res, 200, "Categoría eliminada correctamente");
+});
 
-    // paso 1: valida que la categoria exista
-    const categoryExists = await CategoryModel.findById(Number(id));
-    if (!categoryExists) {
-      return res.status(404).json({
-        success: false,
-        message: `La categoría con ID ${id} no existe`,
-        data: [],
-        errors: [],
-      });
-    }
+// GET /categories/:id/products — Ruta relacional (estándar REST)
+// Retorna todos los productos que pertenecen a una categoría específica
+const getProductsByCategory = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
 
-    // paso 2: busca todos los productos de esa categoria en mysql
-    const products = await ProductModel.findByCategoryId(Number(id));
-    res.status(200).json({
-      success: true,
-      message: `Productos de la categoría: ${categoryExists.name}`,
-      data: products,
-      errors: [],
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error al buscar los productos de la categoría",
-      data: [],
-      errors: [],
-    });
+  // Verificamos que la categoría padre existe antes de buscar sus productos
+  const categoryExists = await CategoryModel.findById(Number(id));
+  if (!categoryExists) {
+    const error = new Error(`La categoría con ID ${id} no existe`);
+    error.statusCode = 404;
+    return next(error);
   }
-};
+
+  const products = await ProductModel.findByCategoryId(Number(id));
+  return successResponse(
+    res,
+    200,
+    `Productos de la categoría: ${categoryExists.name}`,
+    products
+  );
+});
 
 export {
   getAllCategories,
