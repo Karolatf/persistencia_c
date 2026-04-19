@@ -12,12 +12,15 @@
 import express from "express";
 import productRouter from "./routes/product.routes.js";
 import categoryRouter from "./routes/category.routes.js";
+import authRouter from './routes/auth.routes.js';
 // Importar db.js aquí ejecuta la prueba de conexión al arrancar el servidor
 import "./config/db.js";
 // Importamos el manejador global de errores de la capa de middlewares
 import { globalErrorHandler } from "./middlewares/error.middleware.js";
 
 const app = express();
+
+app.set('strict routing', false);
 
 // Middleware para parsear el body de las peticiones en formato JSON
 app.use(express.json());
@@ -35,6 +38,7 @@ app.get("/", (req, res) => {
 });
 
 // Registro de rutas bajo sus prefijos correspondientes
+app.use('/api/auth', authRouter);     // endpoints publicos de autenticacion
 app.use("/products", productRouter);
 app.use("/categories", categoryRouter);
 
@@ -43,3 +47,4 @@ app.use("/categories", categoryRouter);
 app.use(globalErrorHandler);
 
 export default app;
+
