@@ -1,38 +1,74 @@
 // MÓDULO: routes/category.routes.js
 // CAPA:   Routes
 //
-// Actualización: POST y PUT ahora pasan por validateSchema(categorySchema).
+// ACTUALIZACION RBAC: se agrega checkPermission a todas las rutas
+// siguiendo el mismo patron que product.routes.js
 //
 // Dependencias:
 //   controllers/category.controller.js
 //   middlewares/validator.middleware.js
+//   middlewares/auth.middleware.js
+//   middlewares/authorization.middleware.js
 //   schemas/category.schema.js
 
-import { Router } from "express";
+import { Router } from 'express';
 import {
-  getAllCategories,
-  getCategoryById,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  getProductsByCategory,
-} from "../controllers/category.controller.js";
-import { validateSchema } from "../middlewares/validator.middleware.js";
-import { categorySchema } from "../schemas/category.schema.js";
+    getAllCategories,
+    getCategoryById,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+    getProductsByCategory,
+} from '../controllers/category.controller.js';
+import { validateSchema }  from '../middlewares/validator.middleware.js';
+import { verifyToken }     from '../middlewares/auth.middleware.js';
+import { checkPermission } from '../middlewares/authorization.middleware.js';
+import { categorySchema }  from '../schemas/category.schema.js';
 
 const categoryRouter = Router();
 
-// GET y DELETE no necesitan validación de body
-categoryRouter.get("/", getAllCategories);
-categoryRouter.get("/:id", getCategoryById);
+// GET /categories — lectura publica para usuarios con rol user o admin
+categoryRouter.get('/',
+    verifyToken,
+    checkPermission('categories.read'),
+    getAllCategories
+);
 
-// POST y PUT: primero valida con Zod, luego llama al controlador
-categoryRouter.post("/", validateSchema(categorySchema), createCategory);
-categoryRouter.put("/:id", validateSchema(categorySchema), updateCategory);
+// GET /categories/:id — lectura
+categoryRouter.get('/:id',
+    verifyToken,
+    checkPermission('categories.read'),
+    getCategoryById
+);
 
-categoryRouter.delete("/:id", deleteCategory);
+// POST /categories — solo admin puede crear
+categoryRouter.post('/',
+    verifyToken,
+    checkPermission('categories.create'),
+    validateSchema(categorySchema),
+    createCategory
+);
 
-// Ruta relacional REST estándar
-categoryRouter.get("/:id/products", getProductsByCategory);
+// PUT /categories/:id — solo admin puede actualizar
+categoryRouter.put('/:id',
+    verifyToken,
+    checkPermission('categories.update'),
+    validateSchema(categorySchema),
+    updateCategory
+);
+
+// DELETE /categories/:id — solo admin puede eliminar
+categoryRouter.delete('/:id',
+    verifyToken,
+    checkPermission('categories.delete'),
+    deleteCategory
+);
+
+// GET /categories/:id/products — lectura
+categoryRouter.get('/:id/products',
+    verifyToken,
+    checkPermission('categories.read'),
+    getProductsByCategory
+);
 
 export default categoryRouter;

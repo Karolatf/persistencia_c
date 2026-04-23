@@ -1,14 +1,20 @@
 // MÓDULO: routes/product.routes.js
 // CAPA:   Routes
 //
-// Actualización: todas las rutas ahora están protegidas con verifyToken.
-// El cliente debe enviar un JWT válido en el header Authorization
-// para poder acceder a cualquier endpoint de productos.
+// ACTUALIZACION RBAC:
+//   Cada ruta ahora tiene TRES capas de proteccion:
+//     1. verifyToken        — verifica que el JWT sea valido
+//     2. checkPermission()  — verifica que el usuario tenga el permiso atomico
+//     3. validateSchema()   — (solo POST/PUT) valida el body con Zod
+//
+// Orden obligatorio: verifyToken SIEMPRE antes de checkPermission
+// porque checkPermission lee req.user que adjunta verifyToken
 //
 // Dependencias:
 //   controllers/product.controller.js
 //   middlewares/validator.middleware.js
 //   middlewares/auth.middleware.js
+//   middlewares/authorization.middleware.js
 //   schemas/product.schema.js
 
 import { Router } from 'express';
@@ -19,18 +25,48 @@ import {
     updateProduct,
     deleteProduct,
 } from '../controllers/product.controller.js';
-import { validateSchema } from '../middlewares/validator.middleware.js';
-import { verifyToken } from '../middlewares/auth.middleware.js';
-import { productSchema } from '../schemas/product.schema.js';
+import { validateSchema }    from '../middlewares/validator.middleware.js';
+import { verifyToken }       from '../middlewares/auth.middleware.js';
+import { checkPermission }   from '../middlewares/authorization.middleware.js';
+import { productSchema }     from '../schemas/product.schema.js';
 
 const productRouter = Router();
 
-// verifyToken se ejecuta primero en TODAS las rutas de productos
-// Si el token no es válido, la petición se detiene aquí con 401
-productRouter.get('/', verifyToken, getAllProducts);
-productRouter.get('/:id', verifyToken, getProductById);
-productRouter.post('/', verifyToken, validateSchema(productSchema), createProduct);
-productRouter.put('/:id', verifyToken, validateSchema(productSchema), updateProduct);
-productRouter.delete('/:id', verifyToken, deleteProduct);
+// GET /products — requiere permiso de lectura
+productRouter.get('/',
+    verifyToken,
+    checkPermission('products.read'),
+    getAllProducts
+);
+
+// GET /products/:id — requiere permiso de lectura
+productRouter.get('/:id',
+    verifyToken,
+    checkPermission('products.read'),
+    getProductById
+);
+
+// POST /products — requiere permiso de creacion + validacion del body
+productRouter.post('/',
+    verifyToken,
+    checkPermission('products.create'),
+    validateSchema(productSchema),
+    createProduct
+);
+
+// PUT /products/:id — requiere permiso de actualizacion + validacion del body
+productRouter.put('/:id',
+    verifyToken,
+    checkPermission('products.update'),
+    validateSchema(productSchema),
+    updateProduct
+);
+
+// DELETE /products/:id — requiere permiso de eliminacion (solo admin)
+productRouter.delete('/:id',
+    verifyToken,
+    checkPermission('products.delete'),
+    deleteProduct
+);
 
 export default productRouter;
